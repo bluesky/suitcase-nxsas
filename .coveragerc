@@ -1,0 +1,4 @@
+[run]
+branch = true
+include = suitcase/sas/*
+omit = suitcase/sas/_version.py
