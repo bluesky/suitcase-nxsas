@@ -4,7 +4,7 @@
 from suitcase.sas import export
 
 
-def test_export(tmp_path, example_data):
+def do_not_test_export(tmp_path, example_data):
     # Exercise the exporter on the myriad cases parametrized in example_data.
     documents = example_data()
     export(documents, tmp_path)
