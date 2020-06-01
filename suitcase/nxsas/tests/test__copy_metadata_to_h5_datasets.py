@@ -1,4 +1,4 @@
-from suitcase.sas import _copy_metadata_to_h5_datasets
+from suitcase.nxsas import _copy_metadata_to_h5_datasets
 
 
 def test_str(h5_context):

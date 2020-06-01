@@ -42,7 +42,7 @@ def get_config():
     cfg.style = "pep440-post"
     cfg.tag_prefix = "v"
     cfg.parentdir_prefix = "None"
-    cfg.versionfile_source = "suitcase/sas/_version.py"
+    cfg.versionfile_source = "suitcase/nxsas/_version.py"
     cfg.verbose = False
     return cfg
 

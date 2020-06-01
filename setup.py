@@ -34,13 +34,13 @@ with open(path.join(here, 'requirements.txt')) as requirements_file:
 
 
 setup(
-    name='suitcase-sas',
+    name='suitcase-nxsas',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     long_description=readme,
     long_description_content_type='text/markdown',
-    packages=['suitcase.sas',
-              'suitcase.sas.tests'],
+    packages=['suitcase.nxsas',
+              'suitcase.nxsas.tests'],
     entry_points={
         'console_scripts': [
             # 'some.module:some_function',
@@ -49,7 +49,7 @@ setup(
     include_package_data=True,
     python_requires='>={}'.format('.'.join(str(n) for n in min_version)),
     package_data={
-        'suitcase.sas': [
+        'suitcase.nxsas': [
             # When adding files here, remember to update MANIFEST.in as well,
             # or else they will not be included in the distribution on PyPI!
             # 'path/to/data_file',

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import h5py
 
-from suitcase.sas import _copy_nexus_md_to_nexus_h5
+from suitcase.nxsas import _copy_nexus_md_to_nexus_h5
 
 
 def test_group_with_attributes(tmp_path):

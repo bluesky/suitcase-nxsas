@@ -2,8 +2,8 @@
 Usage
 =====
 
-Start by importing ``suitcase.sas``.
+Start by importing ``suitcase.nxsas``.
 
 .. code-block:: python
 
-    import suitcase.sas
+    import suitcase.nxsas

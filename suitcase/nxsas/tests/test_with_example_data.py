@@ -1,7 +1,7 @@
 # Tests should generate (and then clean up) any files they need for testing. No
 # binary files should be included in the repository.
 
-from suitcase.sas import export
+from suitcase.nxsas import export
 
 
 def do_not_test_export(tmp_path, example_data):

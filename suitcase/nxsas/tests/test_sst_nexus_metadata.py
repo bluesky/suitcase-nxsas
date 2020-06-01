@@ -4,8 +4,8 @@ import h5py
 
 import event_model
 
-from suitcase.sas import export
-from suitcase.sas.tests.rsoxs_run_documents import (
+from suitcase.nxsas import export
+from suitcase.nxsas.tests.rsoxs_run_documents import (
     rsoxs_start_doc,
     rsoxs_descriptor_en_doc,
     rsoxs_event_page_en_doc,
@@ -65,7 +65,7 @@ techniques_md = {
 
 
 def test_start_nexus_metadata(caplog, tmp_path):
-    caplog.set_level(logging.DEBUG, logger="suitcase.sas")
+    caplog.set_level(logging.DEBUG, logger="suitcase.nxsas")
 
     start_doc_md = {}
     start_doc_md.update(rsoxs_start_doc)
@@ -135,7 +135,7 @@ def test_start_nexus_metadata(caplog, tmp_path):
 
 
 def test_descriptor_nexus_metadata(caplog, tmp_path):
-    caplog.set_level(logging.DEBUG, logger="suitcase.sas")
+    caplog.set_level(logging.DEBUG, logger="suitcase.nxsas")
 
     start_doc_md = {}
     start_doc_md.update(rsoxs_start_doc)

@@ -23,7 +23,7 @@ del get_versions
 
 def export(gen, directory, file_prefix="{uid}-", **kwargs):
     """
-    Export a stream of documents to sas.
+    Export a stream of documents to nxsas.
 
     .. note::
 
@@ -86,7 +86,7 @@ def export(gen, directory, file_prefix="{uid}-", **kwargs):
 
 class Serializer(event_model.SingleRunDocumentRouter):
     """
-    Serialize a stream of documents to sas.
+    Serialize a stream of documents to nxsas.
 
     .. note::
 
@@ -120,7 +120,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
     def __init__(self, directory, file_prefix="{uid}-", **kwargs):
         super().__init__()
-        self.log = logging.Logger("suitcase.sas", level=logging.DEBUG)
+        self.log = logging.Logger("suitcase.nxsas", level=logging.DEBUG)
         self.directory = directory
         self._file_prefix = file_prefix
         self._kwargs = kwargs
@@ -612,7 +612,7 @@ def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
     Recursively reproduce a python "mapping" (typically a dict)
     as h5 nested groups and datasets.
     """
-    log = logging.Logger("suitcase.sas", level="DEBUG")
+    log = logging.Logger("suitcase.nxsas", level="DEBUG")
     for key, value in a_mapping.items():
         if isinstance(value, Mapping):
             # found a dict-like value

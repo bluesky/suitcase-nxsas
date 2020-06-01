@@ -3,7 +3,7 @@ import numpy as np
 
 import event_model
 
-from suitcase.sas import export
+from suitcase.nxsas import export
 
 
 def export_h5_file(output_directory, desc_data_keys, event_page_data_and_timestamps):

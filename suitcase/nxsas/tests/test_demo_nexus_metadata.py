@@ -5,7 +5,7 @@ import numpy as np
 
 import event_model
 
-from suitcase.sas import export
+from suitcase.nxsas import export
 
 start_doc_md = {
     "detectors": ["random_walk:x"],
