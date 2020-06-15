@@ -1,4 +1,4 @@
 [run]
 branch = true
-include = suitcase/sas/*
-omit = suitcase/sas/_version.py
+include = suitcase/nxsas/*
+omit = suitcase/nxsas/_version.py
