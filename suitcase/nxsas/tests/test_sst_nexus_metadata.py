@@ -21,9 +21,9 @@ techniques_md = {
                 "technique": "SAXS",
                 "nxsas": {
                     "entry": {
-                        "NXAttributes": {"NX_Class": "NXEntry", "default": "data"},
+                        "_attributes": {"NX_Class": "NXEntry", "default": "data"},
                         "end_time": {
-                            "NXAttributes": {
+                            "_attributes": {
                                 "NDAttrDescription": "image ending time",
                                 "NDAttrName": "EndTime",
                                 "NDAttrSource": "91dcLAX:SAXS:EndExposureTime",
@@ -32,7 +32,7 @@ techniques_md = {
                             "_link": "#bluesky/stop/time",
                         },
                         "title": {
-                            "NXAttributes": {
+                            "_attributes": {
                                 "NDAttrDescription": "sample name",
                                 "NDAttrName": "SampleTitle",
                                 "NDAttrSource": "91dcLAX:sampleTitle",
@@ -42,14 +42,14 @@ techniques_md = {
                         },
                         "program_name": "EPICS areaDetector",
                         "instrument": {
-                            "NXAttributes": {"NX_Class": "NXInstrument",},
+                            "_attributes": {"NX_Class": "NXInstrument",},
                             "name_1": "#bluesky/start/beamline_id",  # create a link
                             "name_2": {  # create a link with attributes?
-                                "NXAttributes": {"NX_This": "NXThat"},
+                                "_attributes": {"NX_This": "NXThat"},
                                 "_link": "#bluesky/start/beamline_id",
                             },
                             "aperture": {
-                                "NXAttributes": {"NX_Class": "NXAperture",},
+                                "_attributes": {"NX_Class": "NXAperture",},
                                 "vcenter": 1.0,
                                 "vsize": 2.0,
                                 "description": "USAXSslit",
