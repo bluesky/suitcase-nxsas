@@ -1,4 +1,4 @@
-from suitcase.nxsas import _parse_bluesky_document_path
+from suitcase.nxsas.utils import _parse_bluesky_document_path
 
 
 def test__build_bluesky_document_path():
