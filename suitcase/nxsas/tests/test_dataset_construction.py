@@ -6,31 +6,50 @@ import event_model
 from suitcase.nxsas import export
 
 
-def export_h5_file(output_directory, desc_data_keys, event_page_data_and_timestamps):
+def export_h5_file(
+    output_directory,
+    desc_data_keys,
+    event_data_and_timestamps_list=None,
+    event_page_data_and_timestamps=None,
+):
     (
         start_doc,
         compose_descriptor,
         compose_resource,
         compose_stop,
     ) = event_model.compose_run(metadata={"md": {"techniques": []}})
+    document_list = [("start", start_doc)]
 
     (
         primary_descriptor_doc,
         compose_primary_event,
         compose_primary_event_page,
     ) = compose_descriptor(data_keys=desc_data_keys, name="primary",)
+    document_list.append(("descriptor", primary_descriptor_doc))
 
-    event_page = compose_primary_event_page(**event_page_data_and_timestamps)
+    if event_data_and_timestamps_list is not None:
+        for event_data_and_timestamps in event_data_and_timestamps_list:
+            event = compose_primary_event(
+                data=event_data_and_timestamps["data"],
+                timestamps=event_data_and_timestamps["timestamps"],
+            )
+            document_list.append(("event", event))
+
+    if event_page_data_and_timestamps is not None:
+        event_page = compose_primary_event_page(**event_page_data_and_timestamps)
+        document_list.append(("event_page", event_page))
 
     stop_doc = compose_stop()
+    document_list.append(("stop", stop_doc))
 
     artifacts = export(
-        gen=[
-            ("start", start_doc),
-            ("descriptor", primary_descriptor_doc),
-            ("event_page", event_page),
-            ("stop", stop_doc),
-        ],
+        gen=document_list,
+        # gen=[
+        #     ("start", start_doc),
+        #     ("descriptor", primary_descriptor_doc),
+        #     ("event_page", event_page),
+        #     ("stop", stop_doc),
+        # ],
         directory=output_directory,
     )
 
@@ -38,11 +57,11 @@ def export_h5_file(output_directory, desc_data_keys, event_page_data_and_timesta
     return artifacts["stream_data"][0]
 
 
-def test_number_dataset(tmp_path):
+def test_number_dataset_from_event_page(tmp_path):
     event_page_data_and_timestamps = {
         "seq_num": [1],
-        "data": {"en_energy": [270.0012299],},
-        "timestamps": {"en_energy": [1573858592.5232499],},
+        "data": {"en_energy": [270.0012299]},
+        "timestamps": {"en_energy": [1573858592.5232499]},
     }
     h5_output_filepath = export_h5_file(
         output_directory=tmp_path,
@@ -72,11 +91,57 @@ def test_number_dataset(tmp_path):
         )
 
 
+def test_number_dataset_from_events(tmp_path):
+    event_data_and_timestamps_list = [
+        {
+            "seq_num": [1],
+            "data": {"en_energy": [270.0012299]},
+            "timestamps": {"en_energy": [1573858592.5232499]},
+        },
+        {
+            "seq_num": [2],
+            "data": {"en_energy": [271.0012299]},
+            "timestamps": {"en_energy": [1573858593.5232499]},
+        },
+        {
+            "seq_num": [3],
+            "data": {"en_energy": [272.0012299]},
+            "timestamps": {"en_energy": [1573858594.5232499]},
+        },
+    ]
+    h5_output_filepath = export_h5_file(
+        output_directory=tmp_path,
+        desc_data_keys={
+            "en_energy": {
+                "source": "PY:en_energy.position",
+                "dtype": "number",
+                "shape": [],
+                "upper_ctrl_limit": 2500,
+                "lower_ctrl_limit": 150,
+                "units": "",
+                "object_name": "en",
+            },
+        },
+        event_data_and_timestamps_list=event_data_and_timestamps_list,
+    )
+
+    with h5py.File(h5_output_filepath, "r") as h:
+        print(list(h["bluesky"]["events"]))
+        # assert (
+        #     h["bluesky"]["events"]["primary"]["data"]["en_energy"][()]
+        #     == event_page_data_and_timestamps["data"]["en_energy"]
+        # )
+        # assert (
+        #     h["bluesky"]["events"]["primary"]["timestamps"]["en_energy"][()]
+        #     == event_page_data_and_timestamps["timestamps"]["en_energy"]
+        # )
+
+
 def test_str_dataset(tmp_path):
     event_page_info = {
         "seq_num": [1],
-        "data": {"en_monoen_grating_plim_desc": ["Positive End Limit Set"],},
-        "timestamps": {"en_monoen_grating_plim_desc": [1573882935.047036],},
+        "data": {"en_monoen_grating_plim_desc": ["Positive End Limit Set"]},
+        "timestamps": {"en_monoen_grating_plim_desc": [1573882935.047036]},
     }
     h5_output_filepath = export_h5_file(
         output_directory=tmp_path,
@@ -106,11 +171,11 @@ def test_str_dataset(tmp_path):
         )
 
 
-def test_str_dataset(tmp_path):
+def test_integer_dataset(tmp_path):
     event_page_info = {
         "seq_num": [1],
-        "data": {"en_monoen_grating_encoder": [-12189118],},
-        "timestamps": {"en_monoen_grating_encoder": [1573882951.510888],},
+        "data": {"en_monoen_grating_encoder": [-12189118]},
+        "timestamps": {"en_monoen_grating_encoder": [1573882951.510888]},
     }
     h5_output_filepath = export_h5_file(
         output_directory=tmp_path,
@@ -157,7 +222,7 @@ def test_array_integer_dataset(tmp_path):
             #        [5054, 5048, 5055, ..., 4981, 4978, 4984],
             #        [5054, 5053, 5043, ..., 4974, 4993, 5008]], dtype=uint32),
         },
-        "timestamps": {"Synced_saxs_image": [1573882944.765147],},
+        "timestamps": {"Synced_saxs_image": [1573882944.765147]},
     }
     desc_data_keys = {
         "Synced_saxs_image": {

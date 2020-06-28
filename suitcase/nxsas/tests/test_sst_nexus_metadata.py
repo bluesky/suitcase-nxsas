@@ -42,14 +42,14 @@ techniques_md = {
                         },
                         "program_name": "EPICS areaDetector",
                         "instrument": {
-                            "_attributes": {"NX_Class": "NXInstrument",},
+                            "_attributes": {"NX_Class": "NXInstrument", },
                             "name_1": "#bluesky/start/beamline_id",  # create a link
                             "name_2": {  # create a link with attributes?
                                 "_attributes": {"NX_This": "NXThat"},
                                 "_link": "#bluesky/start/beamline_id",
                             },
                             "aperture": {
-                                "_attributes": {"NX_Class": "NXAperture",},
+                                "_attributes": {"NX_Class": "NXAperture", },
                                 "vcenter": 1.0,
                                 "vsize": 2.0,
                                 "description": "USAXSslit",
@@ -83,15 +83,13 @@ def test_start_nexus_metadata(caplog, tmp_path):
         # 'run start' document
         metadata=start_doc_md
     )
-    ###print(start_doc)
     documents.append(("start", start_doc))
     stop_doc = compose_stop()
-    ###print(stop_doc)
+
     documents.append(("stop", stop_doc))
     artifacts = export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
-    ###print(artifacts)
 
     output_filepath = artifacts["stream_data"][0]
     assert output_filepath.exists()
@@ -153,7 +151,6 @@ def test_descriptor_nexus_metadata(caplog, tmp_path):
         metadata=start_doc_md
     )
 
-    ###print(start_doc)
     documents.append(("start", start_doc))
 
     descriptor_doc_md = dict()

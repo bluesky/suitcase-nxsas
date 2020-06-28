@@ -5,6 +5,7 @@ coverage
 flake8
 # TEMPORARY UNTIL https://github.com/NSLS-II/ophyd/pull/682 IS RELEASED
 git+git://github.com/NSLS-II/ophyd@ophyd-for-suitcase-utils
+epics-pypdb
 pytest >=3.9
 sphinx
 suitcase-utils[test_fixtures] >=0.1.0rc2
