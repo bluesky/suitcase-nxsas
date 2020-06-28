@@ -11,7 +11,10 @@ import h5py
 
 import event_model
 
-from .utils import _copy_nexus_md_to_nexus_h5, _bluesky_doc_query_re, _copy_metadata_to_h5_datasets
+from .utils import (
+    _copy_nexus_md_to_nexus_h5,
+    _copy_metadata_to_h5_datasets,
+)
 
 from ._version import get_versions
 
@@ -178,9 +181,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
         self._templated_file_prefix = self._file_prefix.format(**start_doc)
         self.filename = self._templated_file_prefix + ".h5"
 
-        self.log.info(
-            "creating file %s in directory %s", self.filename, self.directory
-        )
+        self.log.info("creating file %s in directory %s", self.filename, self.directory)
 
         self.output_filepath = self.directory / Path(self.filename)
         self._h5_output_file = h5py.File(self.output_filepath, "w")
@@ -209,15 +210,19 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
         # create a group for this descriptor, use the stream name
         # copy the descriptor document metadata to H5 datasets
-        h5_descriptor_stream_group = h5_bluesky_descriptors_group.create_group(stream_name)
-        _copy_metadata_to_h5_datasets(a_mapping=descriptor_doc, h5_group=h5_descriptor_stream_group)
+        h5_descriptor_stream_group = h5_bluesky_descriptors_group.create_group(
+            stream_name
+        )
+        _copy_metadata_to_h5_datasets(
+            a_mapping=descriptor_doc, h5_group=h5_descriptor_stream_group
+        )
 
         # create a group to hold datasets
         # each row of a dataset will be read from an event_page document
-        h5_stream_data_group = h5_bluesky_group["events"].create_group(stream_name).create_group("data")
+        h5_bluesky_group["events"].create_group(stream_name).create_group("data")
 
         # create a group to hold timestamps
-        h5_stream_timestamps_group = h5_bluesky_group["events"][stream_name].create_group("timestamps")
+        h5_bluesky_group["events"][stream_name].create_group("timestamps")
 
     def event_page(self, even_page_doc):
         super().event_page(even_page_doc)
@@ -227,9 +232,13 @@ class Serializer(event_model.SingleRunDocumentRouter):
         # then route them through here.
         stream_name = self.get_stream_name(doc=even_page_doc)
 
-        h5_descriptor_stream_group = self._h5_output_file[self.bluesky_h5_group_name]["descriptors"][stream_name]
+        h5_descriptor_stream_group = self._h5_output_file[self.bluesky_h5_group_name][
+            "descriptors"
+        ][stream_name]
 
-        h5_event_stream_group = self._h5_output_file[self.bluesky_h5_group_name]["events"][stream_name]
+        h5_event_stream_group = self._h5_output_file[self.bluesky_h5_group_name][
+            "events"
+        ][stream_name]
         h5_event_stream_data_group = h5_event_stream_group["data"]
         h5_stream_data_timestamps_group = h5_event_stream_group["timestamps"]
         for ep_data_key, ep_data_list in even_page_doc["data"].items():
@@ -239,7 +248,10 @@ class Serializer(event_model.SingleRunDocumentRouter):
             if ep_data_key not in h5_event_stream_data_group:
                 self.log.debug("dataset '%s' has not been created yet", ep_data_key)
                 self.log.debug("data: %s", ep_data)
-                self.log.debug("descriptor dtype: %s", h5_descriptor_stream_group["data_keys"][ep_data_key]["dtype"][()])
+                self.log.debug(
+                    "descriptor dtype: %s",
+                    h5_descriptor_stream_group["data_keys"][ep_data_key]["dtype"][()],
+                )
                 h5_dataset_init_kwargs = {
                     "name": ep_data_key,
                     "dtype": None,  # we will discover this later
@@ -248,7 +260,9 @@ class Serializer(event_model.SingleRunDocumentRouter):
                     "chunks": (1,),
                 }
 
-                h5_descriptor_stream_data_key_info = h5_descriptor_stream_group["data_keys"][ep_data_key]
+                h5_descriptor_stream_data_key_info = h5_descriptor_stream_group[
+                    "data_keys"
+                ][ep_data_key]
                 if h5_descriptor_stream_data_key_info["dtype"][()] == "string":
                     h5_dataset_init_kwargs["dtype"] = h5py.string_dtype()
                 elif h5_descriptor_stream_data_key_info["dtype"][()] == "number":
@@ -277,18 +291,28 @@ class Serializer(event_model.SingleRunDocumentRouter):
                         self.log.debug("array shapes are the same!")
                     elif all(shape_in_desc[:2] == tuple(reversed(ep_data.shape))):
                         self.log.warning("array shapes are reversed!")
-                        self.log.warning("reversed(shape_in_desc): %s", tuple(reversed(shape_in_desc)))
-                        h5_descriptor_stream_data_key_info["shape"][()] = tuple(reversed(shape_in_desc))
+                        self.log.warning(
+                            "reversed(shape_in_desc): %s",
+                            tuple(reversed(shape_in_desc)),
+                        )
+                        h5_descriptor_stream_data_key_info["shape"][()] = tuple(
+                            reversed(shape_in_desc)
+                        )
                     else:
                         raise Exception("shapes are different!")
 
                     h5_dataset_init_kwargs["dtype"] = ep_data.dtype
-                    h5_dataset_init_kwargs["shape"] = tuple(h5_descriptor_stream_data_key_info["shape"])
+                    h5_dataset_init_kwargs["shape"] = tuple(
+                        h5_descriptor_stream_data_key_info["shape"]
+                    )
                     h5_dataset_init_kwargs["maxshape"] = (
                         None,
                         *h5_descriptor_stream_data_key_info["shape"][1:],
                     )
-                    h5_dataset_init_kwargs["chunks"] = (1, *h5_descriptor_stream_data_key_info["shape"][1:])
+                    h5_dataset_init_kwargs["chunks"] = (
+                        1,
+                        *h5_descriptor_stream_data_key_info["shape"][1:],
+                    )
 
                 if isinstance(ep_data, (list, tuple)):
 
@@ -336,18 +360,14 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
             # insert the new data from this event page into
             # the corresponding h5 dataset
-            h5_data_array.resize(
-                (h5_data_array.shape[0] + 1, *h5_data_array.shape[1:])
-            )
+            h5_data_array.resize((h5_data_array.shape[0] + 1, *h5_data_array.shape[1:]))
             if len(h5_data_array.shape) == 1:
                 h5_data_array[-1] = ep_data
             else:
                 h5_data_array[-1, :] = ep_data
 
             # insert the new timestamps
-            h5_data_timestamps_array = h5_stream_data_timestamps_group[
-                ep_data_key
-            ]
+            h5_data_timestamps_array = h5_stream_data_timestamps_group[ep_data_key]
             h5_data_timestamps_array.resize(
                 (
                     h5_data_timestamps_array.shape[0] + 1,
@@ -359,7 +379,9 @@ class Serializer(event_model.SingleRunDocumentRouter):
     def stop(self, doc):
         super().stop(doc)
 
-        h5_bluesky_stop_group = self._h5_output_file[self.bluesky_h5_group_name].create_group("stop")
+        h5_bluesky_stop_group = self._h5_output_file[
+            self.bluesky_h5_group_name
+        ].create_group("stop")
         _copy_metadata_to_h5_datasets(a_mapping=doc, h5_group=h5_bluesky_stop_group)
 
         # all bluesky documents have been serialized
@@ -368,11 +390,15 @@ class Serializer(event_model.SingleRunDocumentRouter):
         start_doc = self.get_start()
         techniques_md = copy.deepcopy(start_doc["md"]["techniques"])
         for technique_info in techniques_md:
+            technique = technique_info["technique"]
             # "version" is mandatory
             technique_schema_version = technique_info["version"]
-            technique = technique_info["technique"]
+            self.log.info("technique: %s", technique)
+            self.log.info("technique version: %s", technique_schema_version)
 
-            _copy_nexus_md_to_nexus_h5(nexus_md=technique_info["nxsas"], h5_group=self._h5_output_file)
+            _copy_nexus_md_to_nexus_h5(
+                nexus_md=technique_info["nxsas"], h5_group=self._h5_output_file
+            )
 
         self.log.info("finished writing file %s", self.filename)
 

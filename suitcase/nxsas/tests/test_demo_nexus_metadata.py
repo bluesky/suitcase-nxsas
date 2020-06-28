@@ -73,10 +73,10 @@ start_doc_md = {
                 "nxsas": {
                     "NXattributes": {"NX_Class": "NXEntry", "default": "data"},
                     "instrument": {
-                        "NXattributes": {"NX_Class": "NXInstrument",},
+                        "NXattributes": {"NX_Class": "NXInstrument", },
                         "name": "#bluesky/start@beamline_id",
                         "aperture": {
-                            "NXattributes": {"NX_Class": "NXAperture",},
+                            "NXattributes": {"NX_Class": "NXAperture", },
                             "vcenter": 1.0,
                             "vsize": 2.0,
                             "description": "USAXSslit",

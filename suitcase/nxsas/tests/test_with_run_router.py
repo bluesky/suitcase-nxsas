@@ -29,7 +29,6 @@ def test_(tmp_path):
     # compose_run will throw an exception if "time" and "uid" are in the metadata
     start_doc_md.pop("time")
     start_doc_md.pop("uid")
-    documents = []
     (
         start_doc,
         compose_descriptor,
@@ -40,7 +39,6 @@ def test_(tmp_path):
         metadata=start_doc_md
     )
 
-    #documents.append(("start", start_doc))
     rr("start", start_doc)
 
     descriptor_doc_md = dict()
@@ -50,7 +48,6 @@ def test_(tmp_path):
     descriptor_doc, compose_event, compose_event_page = compose_descriptor(
         **descriptor_doc_md
     )
-    #documents.append(("descriptor", descriptor_doc))
     rr("descriptor", descriptor_doc)
 
     event_md = dict()
@@ -59,16 +56,10 @@ def test_(tmp_path):
     # the descriptor uid will interfere with compose_event
     event_md.pop("descriptor")
     event_doc = compose_event(**event_md)
-    #documents.append(("event", event_doc))
     rr("event", event_doc)
 
     stop_doc = compose_stop()
-    #documents.append(("stop", stop_doc))
     rr("stop", stop_doc)
-
-    #rr("start", rsoxs_start_doc)
-    #rr("descriptor", rsoxs_descriptor_en_doc)
-    #rr("event_page", rsoxs_event_page_en_doc)
 
     # was anything written?
     print(os.listdir(path=tmp_path))
