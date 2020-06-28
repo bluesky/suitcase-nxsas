@@ -129,7 +129,6 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
         if nexus_key == "_link":
             # this key/value has already been processed
             continue
-        #elif nexus_key == "NXAttributes" or nexus_key == "_attributes":
         elif nexus_key == "_attributes":
             for attr_name, attr_value in nexus_value.items():
                 h5_group.attrs[attr_name] = attr_value
@@ -137,8 +136,10 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
             # if "_link" is in the mapping create a link
             if "_link" in nexus_value:
                 h5_group[nexus_key] = _get_h5_group_or_dataset(
-                    bluesky_document_path=_parse_bluesky_document_path(nexus_value["_link"]),
-                    h5_file=h5_group.file
+                    bluesky_document_path=_parse_bluesky_document_path(
+                        nexus_value["_link"]
+                    ),
+                    h5_file=h5_group.file,
                 )
                 _copy_nexus_md_to_nexus_h5(
                     nexus_md=nexus_value, h5_group=h5_group[nexus_key]
@@ -151,7 +152,9 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
         elif isinstance(nexus_value, str) and nexus_value.startswith("#bluesky"):
             # create a hard link
             bluesky_document_path = _parse_bluesky_document_path(nexus_value)
-            h5_group[nexus_key] = _get_h5_group_or_dataset(bluesky_document_path, h5_group.file)
+            h5_group[nexus_key] = _get_h5_group_or_dataset(
+                bluesky_document_path, h5_group.file
+            )
         else:
             h5_group.create_dataset(name=nexus_key, data=nexus_value)
 
@@ -248,9 +251,7 @@ def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
             # and recursively copy its keys and values to h5 groups and datasets
             group = h5_group.create_group(key)
             log.debug("created h5 group %s", group)
-            _copy_metadata_to_h5_datasets(
-                a_mapping=value, h5_group=group
-            )
+            _copy_metadata_to_h5_datasets(a_mapping=value, h5_group=group)
         else:
             # a special case
             if value is None:
@@ -274,22 +275,29 @@ def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
             # string datasets are special because they must have dtype=h5py.string_dtype()
             try:
                 # use Sequence to handle list and tuple
-                if isinstance(value, str) or (isinstance(value, Sequence) and all([isinstance(x, str) for x in value])):
+                if isinstance(value, str) or (
+                    isinstance(value, Sequence)
+                    and all([isinstance(x, str) for x in value])
+                ):
                     d = h5_group.create_dataset(
                         name=key, data=np.array(value, dtype=h5py.string_dtype())
                     )
                 else:
                     d = h5_group.create_dataset(name=key, data=value)
             except TypeError as err:
-                log.warning("failed to create dataset for key '%s' and value '%s'", key, value)
+                log.warning(
+                    "failed to create dataset for key '%s' and value '%s'", key, value
+                )
                 log.warning("exception: %s", err)
                 log.warning("storing JSON-encoded value instead")
                 d = h5_group.create_dataset(
                     name=key,
-                    data=np.array(json.dumps(value), dtype=h5py.string_dtype())
+                    data=np.array(json.dumps(value), dtype=h5py.string_dtype()),
                 )
             except BaseException as ex:
-                log.warning("failed to create dataset on group '%s' for key '%s'", h5_group, key)
+                log.warning(
+                    "failed to create dataset on group '%s' for key '%s'", h5_group, key
+                )
                 log.exception(ex)
                 raise ex
 
