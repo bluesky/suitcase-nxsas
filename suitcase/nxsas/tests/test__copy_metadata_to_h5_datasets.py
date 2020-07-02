@@ -31,6 +31,6 @@ def test_str_tuple(h5_context):
         )
 
         assert "detectors" in tmp_h5_file
-        print("@@@ detectors dataset:")
-        print(tmp_h5_file["detectors"])
+        # print("@@@ detectors dataset:")
+        # print(tmp_h5_file["detectors"])
         assert all(tmp_h5_file["detectors"][()] == ("Synced", "en_energy"))

@@ -17,7 +17,4 @@ def test_run(RE, tmp_path):
 
     assert len(document_list) > 0
 
-    export(
-        gen=document_list,
-        directory=tmp_path
-    )
+    export(gen=document_list, directory=tmp_path)
