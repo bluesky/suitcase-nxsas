@@ -5,6 +5,7 @@ import h5py
 import pytest
 from bluesky.tests.conftest import RE  # noqa
 from ophyd.tests.conftest import hw  # noqa
+
 # from suitcase.utils.tests.conftest import (  # noqa
 #     example_data,
 #     generate_data,
@@ -23,14 +24,14 @@ def tmp_h5_file(tmp_path):
 def h5_context(tmp_path):
     @contextlib.contextmanager
     def make_context():
-        print("  entering")
+        # print("  entering")
         try:
             f = h5py.File(tmp_path / Path("test.h5"), "w")
             yield f
         except RuntimeError as err:
             print("  ERROR:", err)
         finally:
-            print("  exiting")
+            # print("  exiting")
             f.close()
 
     return make_context

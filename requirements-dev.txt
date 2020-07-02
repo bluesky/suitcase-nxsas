@@ -3,8 +3,7 @@
 codecov
 coverage
 flake8
-# TEMPORARY UNTIL https://github.com/NSLS-II/ophyd/pull/682 IS RELEASED
-git+git://github.com/NSLS-II/ophyd@ophyd-for-suitcase-utils
+ophyd
 epics-pypdb
 pytest >=3.9
 sphinx

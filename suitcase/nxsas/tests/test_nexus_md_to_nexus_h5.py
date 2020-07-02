@@ -166,7 +166,7 @@ def test_group_with_subgroup(tmp_path):
         "entry": {
             "_attributes": {"NX_Class": "NXEntry", "default": "data"},
             "instrument": {
-                "_attributes": {"NX_Class": "NXInstrument", },
+                "_attributes": {"NX_Class": "NXInstrument",},
                 "name_1": "#bluesky/start/beamline_id",
                 "name_2": {
                     "_attributes": {"NX_This": "NXThat"},
@@ -211,10 +211,10 @@ def test(tmp_path):
                     "entry": {
                         "_attributes": {"NX_Class": "NXEntry", "default": "data"},
                         "instrument": {
-                            "_attributes": {"NX_Class": "NXInstrument", },
+                            "_attributes": {"NX_Class": "NXInstrument",},
                             "name": "#bluesky/start/beamline_id",
                             "aperture": {
-                                "_attributes": {"NX_Class": "NXAperture", },
+                                "_attributes": {"NX_Class": "NXAperture",},
                                 "vcenter": 1.0,
                                 "vsize": 2.0,
                                 "description": "USAXSslit",

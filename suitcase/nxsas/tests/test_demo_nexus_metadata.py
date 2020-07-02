@@ -71,12 +71,12 @@ start_doc_md = {
                 "version": 1,
                 "technique": "SAXS",
                 "nxsas": {
-                    "NXattributes": {"NX_Class": "NXEntry", "default": "data"},
+                    "_attributes": {"NX_Class": "NXEntry", "default": "data"},
                     "instrument": {
-                        "NXattributes": {"NX_Class": "NXInstrument", },
+                        "_attributes": {"NX_Class": "NXInstrument",},
                         "name": "#bluesky/start@beamline_id",
                         "aperture": {
-                            "NXattributes": {"NX_Class": "NXAperture", },
+                            "_attributes": {"NX_Class": "NXAperture",},
                             "vcenter": 1.0,
                             "vsize": 2.0,
                             "description": "USAXSslit",

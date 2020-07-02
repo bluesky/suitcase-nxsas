@@ -13,8 +13,7 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
 )
 
 
-def test_(tmp_path):
-
+def test_with_run_router(tmp_path):
     def factory(name, doc):
 
         serializer = Serializer_NXSAS(directory=tmp_path)
@@ -63,4 +62,4 @@ def test_(tmp_path):
 
     # was anything written?
     print(os.listdir(path=tmp_path))
-    len(os.listdir(path=tmp_path)) == 1
+    assert len(os.listdir(path=tmp_path)) == 1
