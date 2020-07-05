@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 
 
-def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
+def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group_or_dataset):
     """
     Read a metadata dictionary with nexus-ish keys and create a corresponding nexus structure in an H5 file.
 
@@ -18,9 +18,10 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
                 "NXAttributes": {"NX_Class": "NXEntry", "default": "data"}
             }
         will look like
-            .../entry
-                   <attr "NX_Class": "NXEntry">
-                   <attr "default: "data">
+            .../
+                <group entry>
+                    <attr "NX_Class": "NXEntry">
+                    <attr "default: "data">
 
         a group with a dataset:
             "entry": {
@@ -28,10 +29,35 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
                 "program_name": "EPICS areaDetector",
             }
         will look like
-            .../<group "entry">
-                   <attr "NX_Class": "NXEntry">
-                   <attr "default: "data">
-                   <dataset "program_name": "EPICS areaDetector">
+            .../
+                <group "entry">
+                    <attr "NX_Class": "NXEntry">
+                    <attr "default: "data">
+                    <dataset "program_name": "EPICS areaDetector">
+
+        a dataset with attributes:
+            "entry": {
+                "_attributes": {"NX_Class": "NXEntry", "default": "data"},
+                "program_name": {
+                    "_attributes": {
+                        "NDAttrDescription": "program name",
+                        "NDAttrName": "ProgramName",
+                        "NDAttrSource": "91dcLAX:GUPNumber",
+                        "NDAttrSourceType": "NDAttrSourceEPICSPV"
+                    },
+                    "_dataset": "EPICS areaDetector",
+                }
+            }
+        will look like
+            .../
+                <group "entry">
+                    <attr "NX_Class": "NXEntry">
+                    <attr "default: "data">
+                    <dataset "program_name": "EPICS areaDetector">
+                        <attr "NDAttrDescription": "program name">
+                        <attr "NDAttrName: "ProgramName">
+                        <attr "NDAttrSource": "91dcLAX:GUPNumber">
+                        <attr "NDAttrSourceType": "NDAttrSourceEPICSPV">
 
         a group with a link to part of the bluesky structure
             "entry": {
@@ -39,10 +65,11 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
                 "GUPNumber": "#bluesky/start/gup_number"
             }
         will look like
-            .../<group "entry">
-                   <attr "NX_Class": "NXEntry">
-                   <attr "default: "data">
-                   <link "GUPNumber" to <dataset /bluesky/start/gup_number>>
+            .../
+                <group "entry">
+                    <attr "NX_Class": "NXEntry">
+                    <attr "default: "data">
+                    <link "GUPNumber" to <dataset /bluesky/start/gup_number>>
 
         a group with a link with attributes to part of the bluesky structure
         note: the "NDAttr..."s are not NeXus
@@ -58,14 +85,15 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
                     "_link": "#bluesky/start/gup_number"
             }
         will look like
-            .../<group "entry">
-                   <attr "NX_Class": "NXEntry">
-                   <attr "default: "data">
-                   <link "GUPNumber" to <dataset /bluesky/start/gup_number>>
-                       <attr "NDAttrDescription": "GUP proposal number">
-                       <attr "NDAttrName": "GUPNumber">
-                       <attr "NDAttrSource": "91dcLAX:GUPNumber">
-                       <attr "NDAttrSourceType": "NDAttrSourceEPICSPV">
+            .../
+                <group "entry">
+                    <attr "NX_Class": "NXEntry">
+                    <attr "default: "data">
+                    <link "GUPNumber" to <dataset /bluesky/start/gup_number>>
+                        <attr "NDAttrDescription": "GUP proposal number">
+                        <attr "NDAttrName": "GUPNumber">
+                        <attr "NDAttrSource": "91dcLAX:GUPNumber">
+                        <attr "NDAttrSourceType": "NDAttrSourceEPICSPV">
 
         a group with subgroups:
             "entry": {
@@ -126,37 +154,55 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group):
 
     """
     for nexus_key, nexus_value in nexus_md.items():
-        if nexus_key == "_link":
+        if nexus_key in ("_data", "_link"):
             # this key/value has already been processed
             continue
         elif nexus_key == "_attributes":
             for attr_name, attr_value in nexus_value.items():
-                h5_group.attrs[attr_name] = attr_value
+                h5_group_or_dataset.attrs[attr_name] = attr_value
         elif isinstance(nexus_value, Mapping):
-            # if "_link" is in the mapping create a link
+            # we arrive here in a case such as:
+            #   "program_name": {
+            #      "_attributes": {"attr_1": "abc", "attr_2": "def"},
+            #      "_link": "#bluesky/start/program_name"
+            #   }
+            # where nexus_key is "program_name" and
+            # nexus_value is the associated dictionary
             if "_link" in nexus_value:
-                h5_group[nexus_key] = _get_h5_group_or_dataset(
+                h5_group_or_dataset[nexus_key] = _get_h5_group_or_dataset(
                     bluesky_document_path=_parse_bluesky_document_path(
                         nexus_value["_link"]
                     ),
-                    h5_file=h5_group.file,
+                    h5_file=h5_group_or_dataset.file,
                 )
                 _copy_nexus_md_to_nexus_h5(
-                    nexus_md=nexus_value, h5_group=h5_group[nexus_key]
+                   nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset[nexus_key]
+                )
+            elif "_data" in nexus_value:
+                # we arrive here in a case such as:
+                #   "program_name": {
+                #      "_attributes": {"attr_1": "abc", "attr_2": "def"},
+                #      "_data": "the name of the program"
+                #   }
+                # where nexus_key is "program_name" and
+                # nexus_value is the associated dictionary
+                h5_group_or_dataset.create_dataset(name=nexus_key, data=nexus_value["_data"])
+                _copy_nexus_md_to_nexus_h5(
+                   nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset[nexus_key]
                 )
             else:
                 # otherwise create a group
                 _copy_nexus_md_to_nexus_h5(
-                    nexus_md=nexus_value, h5_group=h5_group.create_group(nexus_key),
+                    nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset.create_group(nexus_key),
                 )
         elif isinstance(nexus_value, str) and nexus_value.startswith("#bluesky"):
-            # create a hard link
+            # create a link
             bluesky_document_path = _parse_bluesky_document_path(nexus_value)
-            h5_group[nexus_key] = _get_h5_group_or_dataset(
-                bluesky_document_path, h5_group.file
+            h5_group_or_dataset[nexus_key] = _get_h5_group_or_dataset(
+                bluesky_document_path, h5_group_or_dataset.file
             )
         else:
-            h5_group.create_dataset(name=nexus_key, data=nexus_value)
+            h5_group_or_dataset.create_dataset(name=nexus_key, data=nexus_value)
 
 
 _bluesky_doc_query_re = re.compile(
