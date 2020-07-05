@@ -452,17 +452,19 @@ class Serializer(event_model.SingleRunDocumentRouter):
         # now is the time to create the NeXuS structure
         # parse the "techniques" section of the start document
         start_doc = self.get_start()
-        techniques_md = copy.deepcopy(start_doc["md"]["techniques"])
-        for technique_info in techniques_md:
-            technique = technique_info["technique"]
-            # "version" is mandatory
-            technique_schema_version = technique_info["version"]
-            self.log.info("technique: %s", technique)
-            self.log.info("technique version: %s", technique_schema_version)
 
-            _copy_nexus_md_to_nexus_h5(
-                nexus_md=technique_info["nxsas"], h5_group_or_dataset=self._h5_output_file
-            )
+        if "md" in start_doc and "techniques" in start_doc["md"]:
+            techniques_md = copy.deepcopy(start_doc["md"]["techniques"])
+            for technique_info in techniques_md:
+                technique = technique_info["technique"]
+                # "version" is mandatory
+                technique_schema_version = technique_info["version"]
+                self.log.info("technique: %s", technique)
+                self.log.info("technique version: %s", technique_schema_version)
+
+                _copy_nexus_md_to_nexus_h5(
+                    nexus_md=technique_info["nxsas"], h5_group_or_dataset=self._h5_output_file
+                )
 
         self.log.info("finished writing file %s", self.filename)
 
