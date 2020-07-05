@@ -1,7 +1,8 @@
 import os
 
+import pytest
+
 import event_model
-from event_model import RunRouter
 
 from suitcase.nxsas import Serializer as Serializer_NXSAS
 from .test_sst_nexus_metadata import techniques_md
@@ -13,19 +14,23 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
 )
 
 
-def test_with_run_router(tmp_path):
+# test the cases of presence and
+# absence of techniques metadata
+@pytest.mark.parametrize(
+    "md",
+    [techniques_md, {}],
+)
+def test_with_run_router(tmp_path, md):
     def factory(name, doc):
-
         serializer = Serializer_NXSAS(directory=tmp_path)
-
         return [serializer], []
 
-    rr = RunRouter([factory])
+    rr = event_model.RunRouter([factory])
 
     start_doc_md = {}
     start_doc_md.update(rsoxs_start_doc)
-    start_doc_md.update(techniques_md)
-    # compose_run will throw an exception if "time" and "uid" are in the metadata
+    start_doc_md.update(md)
+    # compose_run will raise an exception if "time" and "uid" are in the metadata
     start_doc_md.pop("time")
     start_doc_md.pop("uid")
     (
@@ -34,7 +39,6 @@ def test_with_run_router(tmp_path):
         compose_resource,
         compose_stop,
     ) = event_model.compose_run(
-        # 'run start' document
         metadata=start_doc_md
     )
 
