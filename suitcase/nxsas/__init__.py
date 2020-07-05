@@ -123,6 +123,9 @@ class Serializer(event_model.SingleRunDocumentRouter):
     def __init__(self, directory, file_prefix="{uid}-", **kwargs):
         super().__init__()
         self.log = logging.getLogger("suitcase.nxsas")
+
+        if not isinstance(directory, Path):
+            directory = Path(directory)
         self.directory = directory
         self._file_prefix = file_prefix
         self._kwargs = kwargs
@@ -168,49 +171,84 @@ class Serializer(event_model.SingleRunDocumentRouter):
     def __exit__(self, *exception_details):
         self.close()
 
-    # Each of the methods below corresponds to a document type. As
-    # documents flow in through Serializer.__call__, the DocumentRouter base
-    # class will forward them to the method with the name corresponding to
-    # the document's type: RunStart documents go to the 'start' method,
-    # etc.
     def start(self, start_doc):
+        """
+        Determine the name for the HDF5 output file and open it.
+        Create a top-level group for bluesky data.
+        Create "start", "descriptors", "events", and "stop" groups.
+        Copy start document data to the H5 start group.
+
+        The top level groups look like this:
+        /
+            bluesky/  <-- found in bluesky_h5_group_name
+                start/
+                descriptors/
+                events/
+                stop/
+
+        Parameters
+        ==========
+        start_doc: dict
+            RunStart document
+        """
         super().start(start_doc)
+
         # Fill in the file_prefix with the contents of the RunStart document.
         # As in, '{uid}' -> 'c1790369-e4b2-46c7-a294-7abfa239691a'
         # or 'my-data-from-{plan-name}' -> 'my-data-from-scan'
         self.log.info("new run detected uid=%s", start_doc["uid"])
         self._templated_file_prefix = self._file_prefix.format(**start_doc)
-        self.filename = self._templated_file_prefix + ".h5"
+        self.filename = Path(self._templated_file_prefix + ".h5")
 
         self.log.info("creating file %s in directory %s", self.filename, self.directory)
-
-        self.output_filepath = self.directory / Path(self.filename)
+        self.output_filepath = self.directory / self.filename
         self._h5_output_file = h5py.File(self.output_filepath, "w")
 
         # create a top-level group to hold bluesky document information
-        bluesky_group = self._h5_output_file.create_group(self.bluesky_h5_group_name)
-        self.log.info("created bluesky group %s", bluesky_group)
+        h5_bluesky_group = self._h5_output_file.create_group(self.bluesky_h5_group_name)
 
-        # copy start document metadata to H5 datasets
-        start_group = bluesky_group.create_group("start")
-        _copy_metadata_to_h5_datasets(a_mapping=start_doc, h5_group=start_group)
+        # create the start group and copy the start document to it
+        h5_start_group = h5_bluesky_group.create_group("start")
+        _copy_metadata_to_h5_datasets(a_mapping=start_doc, h5_group=h5_start_group)
 
-        # create a group for descriptors
-        bluesky_group.create_group("descriptors")
-
-        # create a group for event data
-        bluesky_group.create_group("events")
+        # create groups for descriptors, events, and stop documents
+        h5_bluesky_group.create_group("descriptors")
+        h5_bluesky_group.create_group("events")
+        h5_bluesky_group.create_group("stop")
 
     def descriptor(self, descriptor_doc):
+        """
+        Create a HDF5 group under the "descriptors" group using the stream name.
+        Copy the descriptor document to the new group.
+        Create a HDF5 group under the "events" group with the stream name.
+        Create two HDF5 groups under the "events/<stream name>" group called "data" and "timestamps".
+
+        /
+            bluesky/
+                start/
+                    ...start document metadata...
+                descriptors/
+                    primary/                                 <-- for example, the "primary" stream
+                        ...descriptor document metadata...
+                events/
+                    primary/
+                        data/
+                        timestamps/
+                stop/
+
+        Parameters
+        ==========
+        descriptor_doc: dict
+            EventDescriptor document
+        """
         super().descriptor(descriptor_doc)
 
         h5_bluesky_group = self._h5_output_file[self.bluesky_h5_group_name]
         h5_bluesky_descriptors_group = h5_bluesky_group["descriptors"]
 
-        stream_name = descriptor_doc["name"]
-
         # create a group for this descriptor, use the stream name
         # copy the descriptor document metadata to H5 datasets
+        stream_name = descriptor_doc["name"]
         h5_descriptor_stream_group = h5_bluesky_descriptors_group.create_group(
             stream_name
         )
@@ -226,6 +264,55 @@ class Serializer(event_model.SingleRunDocumentRouter):
         h5_bluesky_group["events"][stream_name].create_group("timestamps")
 
     def event_page(self, event_page_doc):
+        """
+        Create an HDF5 dataset for each data_key when the first EventPage in a stream arrives.
+        Append data to each dataset for each data_key when subsequent EventPages arrive.
+
+        /
+            bluesky/
+                start/
+                    ...start document metadata...
+                descriptors/
+                    primary/
+                        ...descriptor document metadata...
+                events/
+                    primary/
+                        data/
+                            data_key_1 dataset   <-- create data_key datasets when the first EventPage arrives
+                                [1, 2, ...]
+                            data_key_2 dataset
+                                [[1, 2, ...],
+                                 [4, 5, ...],
+                                 ...]
+                            data_key_3 dataset
+                                [
+                                    [
+                                        [1, 2, ...],
+                                        [4, 5, ...],
+                                        ...
+                                    ],
+                                    [
+                                        [9, 8, ...],
+                                        [6, 5, ...],
+                                        ...
+                                    ],
+                                    ...
+                                ]
+                            ...
+                        timestamps/
+                            data_key_1 dataset   <-- create timestamp datasets when the first EventPage arrives
+                                [1593857592.87652, 1593857592.87652, ...]
+                            data_key_2 dataset
+                                [1593857592.87652, 1593857592.87652, ...]
+                            data_key_2 dataset
+                                [1593857592.87652, 1593857592.87652, ...]
+                stop/
+
+        Parameters
+        ==========
+        descriptor_doc: dict
+            EventDescriptor document
+        """
         super().event_page(event_page_doc)
         # There are other representations of Event data -- 'event' and
         # 'bulk_events' (deprecated). But that does not concern us because
@@ -236,67 +323,49 @@ class Serializer(event_model.SingleRunDocumentRouter):
         h5_descriptor_stream_group = self._h5_output_file[self.bluesky_h5_group_name][
             "descriptors"
         ][stream_name]
-
         h5_event_stream_group = self._h5_output_file[self.bluesky_h5_group_name][
             "events"
         ][stream_name]
         h5_event_stream_data_group = h5_event_stream_group["data"]
         h5_event_stream_data_timestamps_group = h5_event_stream_group["timestamps"]
+
         for ep_data_key, ep_data_list in event_page_doc["data"].items():
-            # data in an event_page will *always* be inside a list
-            # ep_data_list may have only one element
-            print(f"ep_data_list: {ep_data_list}")
-            # list_of_scalars = [1, 2, 3]
-            # list_of_scalars_as_array = np.array(list_of_scalars)
-            # list_of_scalars_as_array
-            # Out[14]: array([1, 2, 3])
-            # list_of_scalars_as_array.shape
-            # Out[15]: (3,)
-            # list_of_scalars_as_array[1:]
-            # Out[16]: array([2, 3])
+            if event_page_doc["filled"].get(ep_data_key, None) is False:
+                raise ValueError(
+                    f"data_key {ep_data_key} must be filled "
+                    f" in stream/event/run: {stream_name}/{event_page_doc['uid']}/{self.get_start()['uid']}"
+                )
+            # Data in an event_page will *always* be inside a list because
+            # an event_page contains data from one or more events.
+            # ep_data_list will have only one element if the event page
+            # contains data for exactly one event
+            # for example:
+            #    scalar per event                : ep_data_list = [1.0, 2.0, ...]
+            #    one-dimensional array per event : ep_data_list = [[1, 2, ...], [3, 4, ...], ...]
 
-            # list of arrays
-            # list_of_arrays = [2 * np.ones((2, 3)), 3 * np.ones((2, 3)), 4 * np.ones((2, 3))]
-            # list_of_arrays
-            # Out[18]:
-            # [array([[2., 2., 2.],
-            #         [2., 2., 2.]]),
-            #  array([[3., 3., 3.],
-            #         [3., 3., 3.]]),
-            #  array([[4., 4., 4.],
-            #         [4., 4., 4.]])]
-            # list_of_arrays_as_array = np.array(list_of_arrays)
-            # list_of_arrays_as_array
-            # Out[20]:
-            # array([[[2., 2., 2.],
-            #         [2., 2., 2.]],
-            #        [[3., 3., 3.],
-            #         [3., 3., 3.]],
-            #        [[4., 4., 4.],
-            #         [4., 4., 4.]]])
-            # list_of_arrays_as_array.shape
-            # Out[21]: (3, 2, 3)
-            # list_of_arrays_as_array[1:]
-            # Out[22]:
-            # array([[[3., 3., 3.],
-            #         [3., 3., 3.]],
-            #        [[4., 4., 4.],
-            #         [4., 4., 4.]]])
-
-            ep_data_array = np.array(ep_data_list)
+            # convert the event page list of data to an array
+            # this way there is a .shape to work with
+            # TODO: could we get a list of things with different sizes and fail here?
+            # TODO: this seems to be a deprecated use of np.asarray
+            ep_data_array = np.asarray(ep_data_list)
             ep_data_timestamps_array = np.array(
                 event_page_doc["timestamps"][ep_data_key]
             )
 
+            self.log.debug(
+                "event_page data_key %s has shape %s", ep_data_key, ep_data_array.shape
+            )
+
             # retrieve information from the descriptor document
-            # that has already been stored in the h5 file
+            # already stored in the HDF5 descriptor group
             h5_descriptor_stream_data_key_info = h5_descriptor_stream_group[
                 "data_keys"
             ][ep_data_key]
 
-            # create the h5 dataset for this data key
-            # the first time we see the data key in an event_page
+            # is this the first event page document in the stream?
             if ep_data_key not in h5_event_stream_data_group:
+                # this is the first event page document in the stream
+                # prepare to create a HDF5 dataset for this data_key
                 self.log.debug("dataset '%s' has not been created yet", ep_data_key)
                 self.log.debug("event_page data: %s", ep_data_list)
                 self.log.debug(
@@ -305,6 +374,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
                     list(h5_descriptor_stream_data_key_info.values()),
                 )
 
+                # TODO: use a databroker transform instead
                 if h5_descriptor_stream_data_key_info["dtype"][()] == "array":
                     self.check_and_correct_h5_descriptor_array_shape(
                         h5_descriptor_data_key_info=h5_descriptor_stream_data_key_info,
@@ -322,9 +392,14 @@ class Serializer(event_model.SingleRunDocumentRouter):
                         ep_data_key=ep_data_key,
                         ep_data_list=ep_data_list,
                     ),
-                    # chunks looks like shape with element 0 replaced by 1 (the same as shape...)
-                    "chunks": (1, *ep_data_array.shape[1:]),
+                    # chunks looks like shape with element 0 replaced by 1
                     # maxshape looks like shape with element 0 replaced by None
+                    # for example:
+                    #    shape     chunks    maxshape
+                    #    (3, )     (1, )     (None, )
+                    #    (3, 4)    (1, 4)    (None, 4)
+                    #    (3, 4, 5) (1, 4, 5) (None, 4, 5)
+                    "chunks": (1, *ep_data_array.shape[1:]),
                     "maxshape": (None, *ep_data_array.shape[1:]),
                 }
 
@@ -336,11 +411,11 @@ class Serializer(event_model.SingleRunDocumentRouter):
                 ds = h5_event_stream_data_group.create_dataset(
                     **h5_dataset_init_kwargs,
                 )
-                h5_event_stream_data_group[ep_data_key][:] = ep_data_array
+                ds[:] = ep_data_array
 
                 # also create a timestamps dataset for this data key
                 h5_timestamps_dataset_init_kwargs = {
-                    "shape": (ep_data_array.shape[0], ),
+                    "shape": (ep_data_array.shape[0],),
                     "name": ep_data_key,
                     "dtype": "f8",
                     "chunks": (1,),
@@ -357,20 +432,21 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
                 ds = h5_event_stream_data_group[ep_data_key]
                 ds.resize((ds.shape[0] + ep_data_array.shape[0], *ds.shape[1:]))
-                ds[-(ep_data_array.shape[0]) :] = ep_data_array
+                ds[-(ep_data_array.shape[0]):] = ep_data_array
+
                 ts = h5_event_stream_data_timestamps_group[ep_data_key]
                 ts.resize(
                     (ts.shape[0] + ep_data_timestamps_array.shape[0], *ts.shape[1:],)
                 )
-                ts[-(ep_data_timestamps_array.shape[0]) :] = ep_data_timestamps_array
+                ts[-(ep_data_timestamps_array.shape[0]):] = ep_data_timestamps_array
 
     def stop(self, doc):
         super().stop(doc)
 
-        h5_bluesky_stop_group = self._h5_output_file[
-            self.bluesky_h5_group_name
-        ].create_group("stop")
-        _copy_metadata_to_h5_datasets(a_mapping=doc, h5_group=h5_bluesky_stop_group)
+        _copy_metadata_to_h5_datasets(
+            a_mapping=doc,
+            h5_group=self._h5_output_file[self.bluesky_h5_group_name]["stop"],
+        )
 
         # all bluesky documents have been serialized
         # now is the time to create the NeXuS structure
@@ -385,12 +461,12 @@ class Serializer(event_model.SingleRunDocumentRouter):
             self.log.info("technique version: %s", technique_schema_version)
 
             _copy_nexus_md_to_nexus_h5(
-                nexus_md=technique_info["nxsas"], h5_group=self._h5_output_file
+                nexus_md=technique_info["nxsas"], h5_group_or_dataset=self._h5_output_file
             )
 
         self.log.info("finished writing file %s", self.filename)
 
-        self._h5_output_file.close()
+        self.close()
 
     def check_and_correct_h5_descriptor_array_shape(
         self, h5_descriptor_data_key_info, ep_data_key, ep_data_list

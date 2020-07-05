@@ -10,7 +10,7 @@ def test_group_with_attributes(tmp_path):
 
     filepath = tmp_path / Path("test.h5")
     with h5py.File(filepath, "w") as f:
-        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         # expect this structure:
@@ -34,7 +34,7 @@ def test_group_with_dataset(tmp_path):
 
     filepath = tmp_path / Path("test.h5")
     with h5py.File(filepath, "w") as f:
-        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         # expect this structure:
@@ -66,7 +66,7 @@ def test_group_with_dataset_link(tmp_path):
         f.create_group("bluesky").create_group("start").create_dataset(
             name="gup_number", data=1
         )
-        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         # expect this structure:
@@ -96,6 +96,74 @@ def test_group_with_dataset_link(tmp_path):
         assert f["entry"]["GUPNumber"] == f["bluesky"]["start"]["gup_number"]
 
 
+def test_dataset_with_attributes(tmp_path):
+    md = {
+        "entry": {
+            "_attributes": {"NX_Class": "NXEntry", "default": "data"},
+            "GUPNumber": {
+                "_attributes": {
+                    "NDAttrDescription": "GUP proposal number",
+                    "NDAttrName": "GUPNumber",
+                },
+                "_data": 123,
+            },
+            "ProgramName": {
+                "_attributes": {
+                    "NDAttrDescription": "Program Name",
+                    "NDAttrName": "ProgramName",
+                },
+                "_data": "the name of the program",
+            }
+        }
+    }
+    filepath = tmp_path / Path("test.h5")
+    with h5py.File(filepath, "w") as f:
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
+
+    with h5py.File(filepath, "r") as f:
+        # expect this structure:
+        #    /<group "entry">
+        #       <attr "NX_Class": "NXEntry">
+        #       <attr "default": "data">
+        #       <dataset "GUPNumber" <123>>
+        #           <attr "NDAttrDescription": "GUP proposal number">
+        #           <attr "NDAttrName": "GUPNumber">
+        #       <dataset "ProgramName" <"the name of the program">>
+        #           <attr "NDAttrDescription": "Program Name">
+        #           <attr "NDAttrName": "ProgramName">
+        assert len(f) == 1
+
+        # assert "bluesky" in f
+        # assert "start" in f["bluesky"]
+        # assert "gup_number" in f["bluesky"]["start"]
+        # assert f["bluesky"]["start"]["gup_number"][()] == 123
+
+        assert "entry" in f
+        assert len(f["entry"].attrs) == 2
+        assert f["entry"].attrs["NX_Class"] == "NXEntry"
+        assert f["entry"].attrs["default"] == "data"
+
+        assert "GUPNumber" in f["entry"]
+        assert isinstance(f["entry"]["GUPNumber"], h5py.Dataset)
+        assert f["entry"]["GUPNumber"][()] == 123
+
+        assert len(f["entry"]["GUPNumber"].attrs) == 2
+        assert (
+            f["entry"]["GUPNumber"].attrs["NDAttrDescription"] == "GUP proposal number"
+        )
+        assert f["entry"]["GUPNumber"].attrs["NDAttrName"] == "GUPNumber"
+
+        assert "ProgramName" in f["entry"]
+        assert isinstance(f["entry"]["ProgramName"], h5py.Dataset)
+        assert f["entry"]["ProgramName"][()] == "the name of the program"
+
+        assert len(f["entry"]["ProgramName"].attrs) == 2
+        assert (
+            f["entry"]["ProgramName"].attrs["NDAttrDescription"] == "Program Name"
+        )
+        assert f["entry"]["ProgramName"].attrs["NDAttrName"] == "ProgramName"
+
+
 def test_dataset_link_with_attributes(tmp_path):
     md = {
         "entry": {
@@ -117,7 +185,7 @@ def test_dataset_link_with_attributes(tmp_path):
         f.create_group("bluesky").create_group("start").create_dataset(
             name="gup_number", data=1
         )
-        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         # expect this structure:
@@ -166,7 +234,7 @@ def test_group_with_subgroup(tmp_path):
         "entry": {
             "_attributes": {"NX_Class": "NXEntry", "default": "data"},
             "instrument": {
-                "_attributes": {"NX_Class": "NXInstrument",},
+                "_attributes": {"NX_Class": "NXInstrument"},
                 "name_1": "#bluesky/start/beamline_id",
                 "name_2": {
                     "_attributes": {"NX_This": "NXThat"},
@@ -181,7 +249,7 @@ def test_group_with_subgroup(tmp_path):
         f.create_group("bluesky").create_group("start").create_dataset(
             name="beamline_id", data="RSOXS"
         )
-        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md, h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         # expect this structure:
@@ -211,10 +279,10 @@ def test(tmp_path):
                     "entry": {
                         "_attributes": {"NX_Class": "NXEntry", "default": "data"},
                         "instrument": {
-                            "_attributes": {"NX_Class": "NXInstrument",},
+                            "_attributes": {"NX_Class": "NXInstrument"},
                             "name": "#bluesky/start/beamline_id",
                             "aperture": {
-                                "_attributes": {"NX_Class": "NXAperture",},
+                                "_attributes": {"NX_Class": "NXAperture"},
                                 "vcenter": 1.0,
                                 "vsize": 2.0,
                                 "description": "USAXSslit",
@@ -233,7 +301,7 @@ def test(tmp_path):
             name="beamline_id", data="SST-1 RSoXS"
         )
 
-        _copy_nexus_md_to_nexus_h5(nexus_md=md["techniques"][0]["nxsas"], h5_group=f)
+        _copy_nexus_md_to_nexus_h5(nexus_md=md["techniques"][0]["nxsas"], h5_group_or_dataset=f)
 
     with h5py.File(filepath, "r") as f:
         print(list(f))
