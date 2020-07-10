@@ -5,7 +5,7 @@ import numpy as np
 
 import event_model
 
-from suitcase.nxsas import export
+from suitcase import nxsas
 
 start_doc_md = {
     "detectors": ["random_walk:x"],
@@ -105,7 +105,7 @@ def test_start_nexus_metadata(tmp_path):
     stop_doc = compose_stop()
     print(stop_doc)
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
     print(artifacts)
@@ -241,7 +241,7 @@ def test_descriptor_nexus_metadata(tmp_path):
     stop_doc = compose_stop()
     print(stop_doc)
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
     print(artifacts)
@@ -293,7 +293,7 @@ def test_event_page_nexus_metadata(tmp_path):
     stop_doc = compose_stop()
     print(stop_doc)
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
     print(artifacts)

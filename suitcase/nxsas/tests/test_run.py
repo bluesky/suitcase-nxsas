@@ -1,6 +1,6 @@
 from bluesky.plans import count
 
-from suitcase.nxsas import export
+from suitcase import nxsas
 
 
 def test_run(RE, tmp_path):
@@ -17,4 +17,4 @@ def test_run(RE, tmp_path):
 
     assert len(document_list) > 0
 
-    export(gen=document_list, directory=tmp_path)
+    nxsas.export(gen=document_list, directory=tmp_path)

@@ -3,7 +3,7 @@ import numpy as np
 
 import event_model
 
-from suitcase.nxsas import export
+from suitcase import nxsas
 
 
 import logging
@@ -49,7 +49,7 @@ def export_h5_file(
     stop_doc = compose_stop()
     document_list.append(("stop", stop_doc))
 
-    artifacts = export(gen=document_list, directory=output_directory,)
+    artifacts = nxsas.export(gen=document_list, directory=output_directory,)
 
     assert len(artifacts["stream_data"]) == 1
     return artifacts["stream_data"][0]
