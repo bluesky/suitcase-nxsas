@@ -4,7 +4,7 @@ import pytest
 
 import event_model
 
-from suitcase.nxsas import Serializer as Serializer_NXSAS
+from suitcase import nxsas
 from .test_sst_nexus_metadata import techniques_md
 
 from suitcase.nxsas.tests.rsoxs_run_documents import (
@@ -22,7 +22,7 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
 )
 def test_with_run_router(tmp_path, md):
     def factory(name, doc):
-        serializer = Serializer_NXSAS(directory=tmp_path)
+        serializer = nxsas.Serializer(directory=tmp_path)
         return [serializer], []
 
     rr = event_model.RunRouter([factory])

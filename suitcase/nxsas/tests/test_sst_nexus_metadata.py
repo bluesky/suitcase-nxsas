@@ -4,7 +4,7 @@ import h5py
 
 import event_model
 
-from suitcase.nxsas import export
+from suitcase import nxsas
 from suitcase.nxsas.tests.rsoxs_run_documents import (
     rsoxs_start_doc,
     rsoxs_descriptor_en_doc,
@@ -87,7 +87,7 @@ def test_start_nexus_metadata(caplog, tmp_path):
     stop_doc = compose_stop()
 
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
 
@@ -162,7 +162,7 @@ def test_descriptor_nexus_metadata(caplog, tmp_path):
 
     stop_doc = compose_stop()
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
 
@@ -217,7 +217,7 @@ def test_event_page_nexus_metadata(tmp_path):
 
     stop_doc = compose_stop()
     documents.append(("stop", stop_doc))
-    artifacts = export(documents, tmp_path)
+    artifacts = nxsas.export(documents, tmp_path)
 
     assert len(artifacts["stream_data"]) == 1
 
