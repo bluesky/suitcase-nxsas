@@ -21,8 +21,11 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
     [techniques_md, {}],
 )
 def test_with_run_router(tmp_path, md):
+    # use a directory that does not exist to test that it will be created
+    from pathlib import Path
+    output_dir_path = tmp_path / Path("nonexistent")
     def factory(name, doc):
-        serializer = nxsas.Serializer(directory=tmp_path)
+        serializer = nxsas.Serializer(directory=output_dir_path)
         return [serializer], []
 
     rr = event_model.RunRouter([factory])
@@ -64,6 +67,5 @@ def test_with_run_router(tmp_path, md):
     stop_doc = compose_stop()
     rr("stop", stop_doc)
 
-    # was anything written?
-    print(os.listdir(path=tmp_path))
-    assert len(os.listdir(path=tmp_path)) == 1
+    print(os.listdir(path=output_dir_path))
+    assert len(os.listdir(path=output_dir_path)) == 1
