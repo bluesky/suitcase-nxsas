@@ -176,7 +176,8 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group_or_dataset):
                     h5_file=h5_group_or_dataset.file,
                 )
                 _copy_nexus_md_to_nexus_h5(
-                   nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset[nexus_key]
+                    nexus_md=nexus_value,
+                    h5_group_or_dataset=h5_group_or_dataset[nexus_key],
                 )
             elif "_data" in nexus_value:
                 # we arrive here in a case such as:
@@ -186,14 +187,18 @@ def _copy_nexus_md_to_nexus_h5(nexus_md, h5_group_or_dataset):
                 #   }
                 # where nexus_key is "program_name" and
                 # nexus_value is the associated dictionary
-                h5_group_or_dataset.create_dataset(name=nexus_key, data=nexus_value["_data"])
+                h5_group_or_dataset.create_dataset(
+                    name=nexus_key, data=nexus_value["_data"]
+                )
                 _copy_nexus_md_to_nexus_h5(
-                   nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset[nexus_key]
+                    nexus_md=nexus_value,
+                    h5_group_or_dataset=h5_group_or_dataset[nexus_key],
                 )
             else:
                 # otherwise create a group
                 _copy_nexus_md_to_nexus_h5(
-                    nexus_md=nexus_value, h5_group_or_dataset=h5_group_or_dataset.create_group(nexus_key),
+                    nexus_md=nexus_value,
+                    h5_group_or_dataset=h5_group_or_dataset.create_group(nexus_key),
                 )
         elif isinstance(nexus_value, str) and nexus_value.startswith("#bluesky"):
             # create a link
@@ -287,7 +292,9 @@ def _copy_metadata_to_h5_attrs(a_mapping, h5_group):
 def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
     """
     Recursively reproduce a python "mapping" (typically a dict)
-    as h5 nested groups and datasets.
+    as h5 nested groups and datasets. This function is intended
+    to be used when h5 attributes are not desirable, for example
+    if we want to create h5 links to the resulting datasets.
     """
     log = logging.Logger("suitcase.nxsas", level="DEBUG")
     for key, value in a_mapping.items():
@@ -318,8 +325,10 @@ def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
                 value = ""
 
             # this is where an h5 dataset is assigned
-            # string datasets are special because they must have dtype=h5py.string_dtype()
+            # string datasets are special because they must be explicitly
+            # converted to a numpy array with dtype=h5py.string_dtype()
             try:
+                # check for str or Sequence of str
                 # use Sequence to handle list and tuple
                 if isinstance(value, str) or (
                     isinstance(value, Sequence)
@@ -331,18 +340,25 @@ def _copy_metadata_to_h5_datasets(a_mapping, h5_group):
                 else:
                     d = h5_group.create_dataset(name=key, data=value)
             except TypeError as err:
-                log.warning(
-                    "failed to create dataset for key '%s' and value '%s'", key, value
+                # TypeError occurs if the 'value' is too complex for create_dataset.
+                # Handle this exception by JSON-encoding `value`.
+                log.info(
+                    "handling exception '%s' by JSON-encoding value '%s' for key '%s'",
+                    err,
+                    value,
+                    key,
                 )
-                log.warning("exception: %s", err)
-                log.warning("storing JSON-encoded value instead")
                 d = h5_group.create_dataset(
                     name=key,
                     data=np.array(json.dumps(value), dtype=h5py.string_dtype()),
                 )
             except BaseException as ex:
-                log.warning(
-                    "failed to create dataset on group '%s' for key '%s'", h5_group, key
+                # all other exceptions will be logged and allowed to propagate
+                log.error(
+                    "failed to create dataset in group '%s' for key '%s' with value '%s'",
+                    h5_group,
+                    key,
+                    value,
                 )
                 log.exception(ex)
                 raise ex
