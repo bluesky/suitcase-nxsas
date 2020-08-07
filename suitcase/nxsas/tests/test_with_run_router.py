@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -22,8 +23,8 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
 )
 def test_with_run_router(tmp_path, md):
     # use a directory that does not exist to test that it will be created
-    from pathlib import Path
     output_dir_path = tmp_path / Path("nonexistent")
+
     def factory(name, doc):
         serializer = nxsas.Serializer(directory=output_dir_path)
         return [serializer], []
