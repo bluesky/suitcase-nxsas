@@ -201,8 +201,13 @@ class Serializer(event_model.SingleRunDocumentRouter):
         self.filename = Path(self._templated_file_prefix + ".h5")
 
         self.log.info("creating file %s in directory %s", self.filename, self.directory)
-        if not self.directory.exists():
-            self.directory.mkdir(parents=True)
+
+        # self.filename may contain directories
+        output_file_path = self.directory / self.filename
+        output_dir_path = output_file_path.parent
+        if not output_dir_path.exists():
+            output_dir_path.mkdir(parents=True)
+
         self.output_filepath = self.directory / self.filename
         self._h5_output_file = h5py.File(self.output_filepath, "w")
 
