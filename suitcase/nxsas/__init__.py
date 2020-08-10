@@ -95,7 +95,7 @@ class FileManager:
     Parameters
     ----------
     directory : str or Path
-        The directory (as a string or as a Path) to create teh files inside.
+        The directory (as a string or as a Path) to create the files inside.
     allowed_modes : Iterable
         Modes accepted by ``MultiFileManager.open``. By default this is
         restricted to "exclusive creation" modes ('x', 'xt', 'xb') which raise
