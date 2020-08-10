@@ -137,7 +137,7 @@ class FileManager:
         """
         if Path(relative_file_path).is_absolute():
             raise SuitcaseUtilsValueError(
-                f"The postfix {relative_file_path!r} must be structured like a relative "
+                f"{relative_file_path!r} must be structured like a relative "
                 f"file path."
             )
         abs_file_path = (
@@ -145,7 +145,7 @@ class FileManager:
         )
         if abs_file_path in self._reserved_names:
             raise SuitcaseUtilsValueError(
-                f"The postfix {relative_file_path!r} has already been used."
+                f"Relative path {relative_file_path!r} has already been used."
             )
         self._reserved_names.add(abs_file_path)
         self._artifacts[content_desc].append(abs_file_path)
