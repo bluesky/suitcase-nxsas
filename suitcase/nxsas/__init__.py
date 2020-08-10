@@ -3,14 +3,17 @@
 # intended to be user-facing. They should accept the parameters sketched here,
 # but may also accept additional required or optional keyword arguments, as
 # needed.
+import collections
 import copy
 import logging
+import os
 from pathlib import Path
 
 import h5py
 import numpy as np
 
 import event_model
+from suitcase.utils import ModeError, SuitcaseUtilsValueError
 
 from .utils import (
     _copy_nexus_md_to_nexus_h5,
@@ -86,6 +89,112 @@ def export(gen, directory, file_prefix="{uid}-", **kwargs):
     return serializer.artifacts
 
 
+class FileManager:
+    """
+    A class that manages multiple files.
+    Parameters
+    ----------
+    directory : str or Path
+        The directory (as a string or as a Path) to create teh files inside.
+    allowed_modes : Iterable
+        Modes accepted by ``MultiFileManager.open``. By default this is
+        restricted to "exclusive creation" modes ('x', 'xt', 'xb') which raise
+        an error if the file already exists. This choice of defaults is meant
+        to protect the user for unintentionally overwriting old files. In
+        situations where overwrite ('w', 'wb') or append ('a', 'r+b') are
+        needed, they can be added here.
+    This design is inspired by Python's zipfile and tarfile libraries.
+    """
+
+    def __init__(self, directory, allowed_modes=("x", "xt", "xb"), open_file_fn=open):
+        self.directory = Path(directory)
+        self._reserved_names = set()
+        self._artifacts = collections.defaultdict(list)
+        self._open_file_fn = open_file_fn
+        self._files = dict()
+        self._allowed_modes = set(allowed_modes)
+
+    @property
+    def artifacts(self):
+        return dict(self._artifacts)
+
+    def reserve_name(self, content_desc, relative_file_path):
+        """
+        Ask the wrapper for a filepath.
+        An external library that needs a filepath (not a handle)
+        may use this instead of the ``open`` method.
+        Parameters
+        ----------
+        content_desc : string
+            A label for the sort of content being stored, such as
+            'stream_data' or 'metadata'.
+        relative_file_path : string
+            Directories and filename to be appended to self._directory.
+            Must be unique for this Manager.
+        Returns
+        -------
+        abs_file_path : Path
+        """
+        if Path(relative_file_path).is_absolute():
+            raise SuitcaseUtilsValueError(
+                f"The postfix {relative_file_path!r} must be structured like a relative "
+                f"file path."
+            )
+        abs_file_path = (
+            (self.directory / Path(relative_file_path)).expanduser().resolve()
+        )
+        if abs_file_path in self._reserved_names:
+            raise SuitcaseUtilsValueError(
+                f"The postfix {relative_file_path!r} has already been used."
+            )
+        self._reserved_names.add(abs_file_path)
+        self._artifacts[content_desc].append(abs_file_path)
+        return abs_file_path
+
+    def open(self, content_desc, relative_file_path, mode, **open_file_kwargs):
+        """
+        Request a file handle.
+        Like the built-in open function, this may be used as a context manager.
+        Parameters
+        ----------
+        content_desc : string
+            A label for the sort of content being stored, such as
+            'stream_data' or 'metadata'.
+        relative_file_path : string
+            Directories and filename to be appended to self._directory.
+            Must be unique for this Manager.
+        mode : string
+            One of the ``allowed_modes`` set in __init__``. Default set of
+            options is ``{'x', 'xt', xb'}`` --- 'x' or 'xt' for text, 'xb' for
+            binary.
+        open_file_kwargs : dict
+            Passed through to the open file function. Examples include
+            `encoding`, `errors`, and `newline` for the standard library
+            `open` function (see https://docs.python.org/3/library/functions.html#open).
+
+        Returns
+        -------
+        file : handle
+        """
+        if mode not in self._allowed_modes:
+            raise ModeError(
+                f"The mode passed to MultiFileManager.open is {mode} but "
+                f"needs to be one of {self._allowed_modes}"
+            )
+        abs_file_path = self.reserve_name(content_desc, relative_file_path)
+        os.makedirs(os.path.dirname(abs_file_path), exist_ok=True)
+        f = self._open_file_fn(abs_file_path, mode=mode, **open_file_kwargs)
+        self._files[abs_file_path] = f
+        return f
+
+    def close(self):
+        """
+        close all files opened by the manager
+        """
+        for filepath, f in self._files.items():
+            f.close()
+
+
 class Serializer(event_model.SingleRunDocumentRouter):
     """
     Serialize a stream of documents to nxsas.
@@ -126,12 +235,14 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
         if not isinstance(directory, Path):
             directory = Path(directory)
-        self.directory = directory
+        self._manager = FileManager(
+            directory=directory, allowed_modes={"w"}, open_file_fn=h5py.File
+        )
+
         self._file_prefix = file_prefix
+
         self._kwargs = kwargs
 
-        self._templated_file_prefix = None  # set when we get a 'start' document
-        self.output_filepath = None
         self._h5_output_file = None
 
         self.bluesky_h5_group_name = "bluesky"
@@ -147,16 +258,13 @@ class Serializer(event_model.SingleRunDocumentRouter):
         # This must be a property, not a plain attribute, because the
         # manager's `artifacts` attribute is also a property, and we must
         # access it anew each time to be sure to get the latest contents.
-        if self.output_filepath is None:
-            raise Exception("No artifacts have been created yet.")
-
-        return {"stream_data": [self.output_filepath]}
+        return self._manager.artifacts
 
     def close(self):
         """
         Close all of the resources (e.g. files) allocated.
         """
-        self._h5_output_file.close()
+        self._manager.close()
 
     # These methods enable the Serializer to be used as a context manager:
     #
@@ -187,7 +295,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
                 stop/
 
         Parameters
-        ==========
+        ----------
         start_doc: dict
             RunStart document
         """
@@ -197,19 +305,16 @@ class Serializer(event_model.SingleRunDocumentRouter):
         # As in, '{uid}' -> 'c1790369-e4b2-46c7-a294-7abfa239691a'
         # or 'my-data-from-{plan-name}' -> 'my-data-from-scan'
         self.log.info("new run detected uid=%s", start_doc["uid"])
-        self._templated_file_prefix = self._file_prefix.format(**start_doc)
-        self.filename = Path(self._templated_file_prefix + ".h5")
+        relative_file_path = Path(self._file_prefix.format(**start_doc) + ".h5")
 
-        self.log.info("creating file %s in directory %s", self.filename, self.directory)
+        self.log.info(
+            "creating %s in directory %s", relative_file_path, self._manager.directory
+        )
 
-        # self.filename may contain directories
-        output_file_path = self.directory / self.filename
-        output_dir_path = output_file_path.parent
-        if not output_dir_path.exists():
-            output_dir_path.mkdir(parents=True)
-
-        self.output_filepath = self.directory / self.filename
-        self._h5_output_file = h5py.File(self.output_filepath, "w")
+        # self.output_filepath = self.directory / self.filename
+        self._h5_output_file = self._manager.open(
+            content_desc="stream_data", relative_file_path=relative_file_path, mode="w"
+        )
 
         # create a top-level group to hold bluesky document information
         h5_bluesky_group = self._h5_output_file.create_group(self.bluesky_h5_group_name)
@@ -244,7 +349,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
                 stop/
 
         Parameters
-        ==========
+        ----------
         descriptor_doc: dict
             EventDescriptor document
         """
@@ -316,7 +421,7 @@ class Serializer(event_model.SingleRunDocumentRouter):
                 stop/
 
         Parameters
-        ==========
+        ----------
         descriptor_doc: dict
             EventDescriptor document
         """
@@ -439,13 +544,15 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
                 ds = h5_event_stream_data_group[ep_data_key]
                 ds.resize((ds.shape[0] + ep_data_array.shape[0], *ds.shape[1:]))
-                ds[-(ep_data_array.shape[0]):] = ep_data_array
+                ds[-(ep_data_array.shape[0]) :] = ep_data_array  # noqa
 
                 ts = h5_event_stream_data_timestamps_group[ep_data_key]
                 ts.resize(
                     (ts.shape[0] + ep_data_timestamps_array.shape[0], *ts.shape[1:],)
                 )
-                ts[-(ep_data_timestamps_array.shape[0]):] = ep_data_timestamps_array
+                ts[
+                    -(ep_data_timestamps_array.shape[0]) :  # noqa
+                ] = ep_data_timestamps_array
 
     def stop(self, doc):
         super().stop(doc)
@@ -470,10 +577,11 @@ class Serializer(event_model.SingleRunDocumentRouter):
                 self.log.info("technique version: %s", technique_schema_version)
 
                 _copy_nexus_md_to_nexus_h5(
-                    nexus_md=technique_info["nxsas"], h5_group_or_dataset=self._h5_output_file
+                    nexus_md=technique_info["nxsas"],
+                    h5_group_or_dataset=self._h5_output_file,
                 )
 
-        self.log.info("finished writing file %s", self.filename)
+        self.log.info("finished writing file %s", list(self._manager._files)[0])
 
         self.close()
 
