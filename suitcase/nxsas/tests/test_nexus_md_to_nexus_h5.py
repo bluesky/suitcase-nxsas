@@ -113,7 +113,7 @@ def test_dataset_with_attributes(tmp_path):
                     "NDAttrName": "ProgramName",
                 },
                 "_data": "the name of the program",
-            }
+            },
         }
     }
     filepath = tmp_path / Path("test.h5")
@@ -158,9 +158,7 @@ def test_dataset_with_attributes(tmp_path):
         assert f["entry"]["ProgramName"][()] == "the name of the program"
 
         assert len(f["entry"]["ProgramName"].attrs) == 2
-        assert (
-            f["entry"]["ProgramName"].attrs["NDAttrDescription"] == "Program Name"
-        )
+        assert f["entry"]["ProgramName"].attrs["NDAttrDescription"] == "Program Name"
         assert f["entry"]["ProgramName"].attrs["NDAttrName"] == "ProgramName"
 
 
@@ -301,7 +299,9 @@ def test(tmp_path):
             name="beamline_id", data="SST-1 RSoXS"
         )
 
-        _copy_nexus_md_to_nexus_h5(nexus_md=md["techniques"][0]["nxsas"], h5_group_or_dataset=f)
+        _copy_nexus_md_to_nexus_h5(
+            nexus_md=md["techniques"][0]["nxsas"], h5_group_or_dataset=f
+        )
 
     with h5py.File(filepath, "r") as f:
         print(list(f))
