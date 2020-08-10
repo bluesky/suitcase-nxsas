@@ -46,6 +46,13 @@ def export(gen, directory, file_prefix="{uid}-", **kwargs):
         as a string or Path object. Use an empty string ``''`` to place files
         in the current working directory.
 
+        In advanced applications, this may direct the serialized output to a
+        memory buffer, network socket, or other writable buffer. It should be
+        an instance of ``suitcase.utils.MemoryBufferManager`` and
+        ``suitcase.utils.MultiFileManager`` or any object implementing that
+        interface. See the suitcase documentation at
+        https://nsls-ii.github.io/suitcase for details.
+
     file_prefix : str, optional
         The first part of the filename of the generated output files. This
         string may include templates as in ``{proposal_id}-{sample_name}-``,
@@ -197,7 +204,7 @@ class FileManager:
 
 class Serializer(event_model.SingleRunDocumentRouter):
     """
-    Serialize a stream of documents to nxsas.
+    Serialize a stream of documents to a HDF5 file.
 
     .. note::
 
@@ -207,17 +214,25 @@ class Serializer(event_model.SingleRunDocumentRouter):
 
     Parameters
     ----------
-    directory : string, Path
+    directory : string, Path, or Manager
         The path to the output directory given as a string or Path object.
         Use an empty string ``''`` to place files in the current working directory.
 
+        In advanced applications, this may direct the serialized output to a
+        memory buffer, network socket, or other writable buffer. It should be
+        an instance of ``suitcase.utils.MemoryBufferManager`` and
+        ``suitcase.utils.MultiFileManager`` or any object implementing that
+        interface. See the suitcase documentation at
+        https://nsls-ii.github.io/suitcase for details.
+
+
     file_prefix : str, optional
-        The first part of the filename of the generated output files. This
-        string may include templates as in ``{proposal_id}-{sample_name}-``,
-        which are populated from the RunStart document. The default value is
-        ``{uid}-`` which is guaranteed to be present and unique. A more
-        descriptive value depends on the application and is therefore left to
-        the user.
+        Relative file path for the exported file, which will be appended to the
+        specified directory. This string may include templates as in
+        ``{proposal_id}-{sample_name}-``, which are populated from the RunStart
+        document. The default value is ``{uid}-`` which is guaranteed to be
+        present and unique. A more descriptive value depends on the application
+        and is therefore left to the user.
 
     **kwargs : kwargs
         Keyword arguments to be passed through to the underlying I/O library.
@@ -233,11 +248,13 @@ class Serializer(event_model.SingleRunDocumentRouter):
         super().__init__()
         self.log = logging.getLogger("suitcase.nxsas")
 
-        if not isinstance(directory, Path):
+        if isinstance(directory, (str, Path)):
             directory = Path(directory)
-        self._manager = FileManager(
-            directory=directory, allowed_modes={"w"}, open_file_fn=h5py.File
-        )
+            self._manager = FileManager(
+                directory=directory, allowed_modes={"w"}, open_file_fn=h5py.File
+            )
+        else:
+            self._manager = directory
 
         self._file_prefix = file_prefix
 
@@ -250,10 +267,10 @@ class Serializer(event_model.SingleRunDocumentRouter):
     @property
     def artifacts(self):
         # The 'artifacts' are the manager's way to exposing to the user a
-        # way to get at the resources that were created. For
-        # `MultiFileManager`, the artifacts are filenames.  For
-        # `MemoryBuffersManager`, the artifacts are the buffer objects
-        # themselves. The Serializer, in turn, exposes that to the user here.
+        # way to get at the resources that were created. For `MultiFileManager`,
+        # the artifacts are filenames.  For`MemoryBuffersManager`, the artifacts
+        # are the buffer objects themselves. The Serializer, in turn, exposes
+        # that to the user here.
         #
         # This must be a property, not a plain attribute, because the
         # manager's `artifacts` attribute is also a property, and we must
