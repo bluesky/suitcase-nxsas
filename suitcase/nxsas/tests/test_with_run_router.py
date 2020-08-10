@@ -18,14 +18,16 @@ from suitcase.nxsas.tests.rsoxs_run_documents import (
 # test the cases of presence and
 # absence of techniques metadata
 @pytest.mark.parametrize(
-    "md",
-    [techniques_md, {}],
+    "md", [techniques_md, {}],
 )
 def test_with_run_router(tmp_path, md):
     # use a directory that does not exist to test that it will be created
     output_dir_path = tmp_path / Path("doesnotexist")
+
     def factory(name, doc):
-        serializer = nxsas.Serializer(file_prefix="doesnotexist/", directory=output_dir_path)
+        serializer = nxsas.Serializer(
+            file_prefix="doesnotexist/", directory=output_dir_path
+        )
         return [serializer], []
 
     rr = event_model.RunRouter([factory])
@@ -41,9 +43,7 @@ def test_with_run_router(tmp_path, md):
         compose_descriptor,
         compose_resource,
         compose_stop,
-    ) = event_model.compose_run(
-        metadata=start_doc_md
-    )
+    ) = event_model.compose_run(metadata=start_doc_md)
 
     rr("start", start_doc)
 
